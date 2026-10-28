@@ -1,0 +1,16 @@
+﻿caso,pedido,estado_inicial,operacion,esperado,resultado_real,estado_final,eventos_emitidos,explicacion
+E01,O001,DRAFT · 4 u · 2100.00 MXN,evaluar_descuento,10%,"evaluar: 10% (total 2100.00, descuento 210.00)",DRAFT,ninguno,AND VIP + monto >500 + unidades >=4 + NOT promo
+E02,O002,DRAFT · 2 u · 1050.00 MXN,evaluar_descuento,0%,"evaluar: 0% (total 1050.00, descuento 0.00)",DRAFT,ninguno,"No VIP, total menor a 5000"
+E03,O003,DRAFT · 4 u · 2100.00 MXN,confirmar,rechazo,confirm(): RECHAZO InvalidOrderData (El cliente está inactivo),DRAFT,ninguno,Cliente inactivo
+E04,O005,DRAFT · 4 u · 2100.00 MXN,evaluar_descuento,0%,"evaluar: 0% (total 2100.00, descuento 0.00)",DRAFT,ninguno,Promocion activa bloquea descuento
+E05,O006,DRAFT · 1 u · 18000.00 MXN,evaluar_descuento,5%,"evaluar: 5% (total 18000.00, descuento 900.00)",DRAFT,ninguno,OR total >5000 y sin promocion
+E06,O007,DRAFT · 0 u · 0 MXN,confirmar,rechazo,confirm(): RECHAZO InvalidOrderData (No se puede confirmar un pedido sin artículos),DRAFT,ninguno,Pedido sin articulos
+E07,O008,DRAFT · 20 u · 2400.00 MXN,confirmar,exito,confirm(): OK,CONFIRMED,OrderConfirmed,20 unidades permitidas
+E08,O009,DRAFT · 19 u · 2280.00 MXN,agregar SKU003 x2,rechazo,add_item(SKU003 x2): RECHAZO OrderItemLimitExceeded (Máximo 20 unidades: hay 19 y se intentan agregar 2),DRAFT,ninguno,21 unidades excede limite
+E09,O010,DRAFT · 2 u · 500.00 MXN,evaluar_descuento,0%,"evaluar: 0% (total 500.00, descuento 0.00)",DRAFT,ninguno,Umbral estricto >500
+E10,O011,DRAFT · 3 u · 1500.00 MXN,evaluar_descuento,0%,"evaluar: 0% (total 1500.00, descuento 0.00)",DRAFT,ninguno,"Solo 3 unidades, requiere 4"
+E11,O012,DRAFT · 1 u · 850.00 MXN,confirmar y enviar sin guia,rechazo envio,confirm(): OK | ship(''): RECHAZO InvalidOrderData (El número de guía es obligatorio),CONFIRMED,OrderConfirmed,La confirmacion es valida pero falta guia
+E12,O013,DRAFT · 1 u · 600.00 MXN,confirmar dos veces,rechazo segunda,confirm() #1: OK | confirm() #2: RECHAZO InvalidOrderTransition (Solo DRAFT puede confirmarse (estado actual: CONFIRMED)),CONFIRMED,OrderConfirmed,No permite confirmar desde CONFIRMED
+E13,O014,DRAFT · 1 u · 600.00 MXN,"confirmar, enviar y cancelar",rechazo cancelacion,confirm(): OK | ship('GUIA-014'): OK | cancel('Cliente desistió'): RECHAZO InvalidOrderTransition (Solo CONFIRMED puede cancelarse (estado actual: SHIPPED)),SHIPPED,"OrderConfirmed, OrderShipped",No permite cancelar desde SHIPPED
+E14,O015,DRAFT · 1 u · 450.00 MXN,"confirmar, enviar y devolver",exito,confirm(): OK | ship('GUIA-015'): OK | return_order(): OK,RETURNED,"OrderConfirmed, OrderShipped, OrderReturned",Termina en RETURNED
+E15,O016,DRAFT · 1 u · 2100.00 MXN,"confirmar, enviar y entregar",exito,confirm(): OK | ship('GUIA-016'): OK | deliver(): OK,DELIVERED,"OrderConfirmed, OrderShipped, OrderDelivered",Termina en DELIVERED
