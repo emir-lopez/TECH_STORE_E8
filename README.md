@@ -1,119 +1,111 @@
 # TechStore U4 · Componentes de Lógica de Negocio
 
-Sistema de gestión del ciclo de vida de pedidos y reglas de negocio para comercio electrónico, desarrollado para la Actividad 4 de la unidad de aprendizaje Componentes de Lógica de Negocio (FIME · UANL).
+Actividad 4 (FIME · UANL). El programa administra los pedidos de una tienda ficticia:
 
-La solución implementa principios de diseño guiado por el dominio (DDD), desacoplamiento de reglas comerciales mediante el patrón Specification y control de transiciones a través de una máquina de estados finitos orientada a eventos. La capa de servicios expone las operaciones del agregado mediante una API REST en FastAPI.
+- Lee clientes, productos y pedidos de CSV y los convierte en objetos.
+- Aplica reglas de descuento con el **Specification Pattern**.
+- Controla el estado de cada pedido con una **máquina de estados** que emite **Domain Events**.
+- Expone las operaciones mediante una **API REST con FastAPI**.
 
----
+No usa base de datos: los pedidos viven en memoria.
 
-## Características del Sistema
+## Estructura
 
-* Repositorio en Memoria: Inicialización del modelo de datos a partir de fixtures en archivos CSV. Los cambios de estado no persisten en base de datos entre ejecuciones.
-* Objetos de Valor (Value Objects): Modelado monetario mediante la clase Money con precisión fija (Decimal), validando divisas válidas (MXN) y prohibiendo montos negativos.
-* Motor de Descuentos Desacoplado: Reglas de elegibilidad evaluadas de forma aislada y combinadas jerárquicamente con operadores lógicos (AND, OR, NOT).
-* Integridad de Estados y Eventos de Dominio: Flujo unidireccional de estados de pedido (DRAFT -> CONFIRMED -> SHIPPED -> DELIVERED / RETURNED / CANCELLED) con emisión de eventos trazables.
-* API RESTful y Mapeo de Excepciones: Controladores HTTP con validaciones estrictas y retorno de códigos de estado según el estándar RFC (200, 201, 404, 409, 422).
-
----
-
-## Estructura del Repositorio
-
+```
 techstore-u4/
+├── datos/                  # 5 CSV del paquete del profesor (sin modificar)
+├── cargar_csv.py           # cargador del paquete (sin modificar)
+├── run.py                  # arranque único (Visual Studio, consola e IIS)
+├── requirements.txt        # dependencias
+├── web.config              # configuración para IIS (HttpPlatformHandler)
+├── README.txt              # reglas del paquete
 ├── app/
 │   ├── __init__.py
-│   ├── domain.py             # Entidades (Customer, Order), Value Objects (Money, OrderItem), eventos y excepciones
-│   ├── specifications.py     # Implementación del patrón Specification y cálculo de descuentos
-│   └── api.py                # Endpoints de la API REST, esquemas y manejadores de excepciones
-├── datos/                    # Fixtures CSV base (clientes, productos, pedidos, detalle y escenarios)
-├── docs/                     # Diagramas de estados y documentación técnica
+│   ├── domain.py           # Money, OrderItem, Customer, Order, estados, eventos, excepciones
+│   ├── specifications.py   # Specification AND/OR/NOT, 4 reglas, discount_rate()
+│   └── api.py              # endpoints FastAPI
 ├── tests/
-│   ├── test_domain.py        # Pruebas unitarias de reglas, invariantes y escenarios E01–E15
-│   └── test_api.py           # Pruebas funcionales de la API y códigos de error HTTP
-├── bitacora_escenarios.csv   # Registro resultante de la ejecución de los escenarios E01–E15
-├── cargar_csv.py             # Módulo de carga y parsing de fixtures a memoria
-├── ejecutar_escenarios.py    # Runner de evaluación de los 15 escenarios de negocio
-├── pytest.ini                # Configuración de ejecución del suite de pruebas
-├── requirements.txt          # Dependencias de producción y pruebas
-└── README.md                 # Documentación del proyecto
+│   ├── test_domain.py      # Value Objects, descuentos, límite, transiciones, E01–E15
+│   └── test_api.py         # 200/201, 404, 409, 422
+├── ejecutar_escenarios.py  # corre E01–E15 y genera bitacora_escenarios.csv
+├── bitacora_escenarios.csv
+└── docs/
+    ├── REPORTE.md          # diagrama, eventos, respuestas y reflexión
+    ├── diagrama_estados.png
+    └── capturas/           # evidencias (carga, pytest y Swagger)
+```
 
----
+## Instalación
 
-## Reglas de Negocio
+Requiere Python 3.11 o superior.
 
-* Invariante Monetario: Uso estricto de Decimal. No admite importes negativos ni valores no finitos. Exclusivo en divisa MXN (Money.__post_init__).
-* Línea de Pedido: Requiere SKU existente y cantidad entera positiva. El subtotal se deriva del precio unitario (OrderItem).
-* Restricción de Volumen: Máximo 20 unidades en total por pedido, siendo la suma agregada de cantidades de artículos, no de líneas (Order.add_item).
-* Modificación de Pedido: Solo se permite agregar artículos si el pedido permanece en estado DRAFT (Order.add_item).
-* Descuento del 10%: Cliente VIP AND total > 500 MXN AND >= 4 unidades AND NOT con promoción previa (Especificación TEN_PERCENT).
-* Descuento del 5%: Total > 5000 MXN AND NOT con promoción previa (Especificación FIVE_PERCENT).
-* Jerarquía de Descuentos: En caso de concurrencia de condiciones para el 5% y el 10%, se aplica de forma preferente el 10% (discount_rate).
-* Confirmación: Solo desde DRAFT. Exige cliente activo y al menos un artículo registrado en el pedido (Order.confirm).
-* Despacho / Envío: Solo desde CONFIRMED. Exige registrar una guía de rastreo no vacía (Order.ship).
-* Cancelación: Solo desde CONFIRMED. Exige proveer un motivo de cancelación no vacío (Order.cancel).
-* Entrega y Devolución: Solo permitidas si el pedido se encuentra en estado SHIPPED (Order.deliver, Order.return_order).
-* Atomicidad Operacional: Las operaciones inválidas lanzan excepciones de dominio sin modificar el estado ni generar eventos.
-
----
-
-## Instalación y Configuración
-
-Requisitos del Sistema: Python 3.11 o superior.
-
-1. Clonar el repositorio localmente:
-git clone https://github.com/tu-usuario/techstore-u4.git
-cd techstore-u4
-
-2. Configurar y activar el entorno virtual de trabajo:
-
-Linux / macOS:
-python3 -m venv .venv
-source .venv/bin/activate
-
-Windows (PowerShell):
+```bash
 python -m venv .venv
-.venv\Scripts\Activate.ps1
+# Windows PowerShell: .venv\Scripts\Activate.ps1
+# Windows CMD:        .venv\Scripts\activate.bat
+# macOS / Linux:      source .venv/bin/activate
+python -m pip install -r requirements.txt
+```
 
-Windows (CMD):
-python -m venv .venv
-.venv\Scripts\activate.bat
+## Ejecución
 
-3. Instalar las dependencias del proyecto:
-pip install -r requirements.txt
+```bash
+python cargar_csv.py            # 16 pedidos en DRAFT (O001 → 4 unidades, 2100.00)
+python ejecutar_escenarios.py   # E01–E15 y bitácora
+python -m pytest -q             # 51 pruebas
+uvicorn app.api:app --reload    # http://127.0.0.1:8000/docs
+```
 
----
+También puede arrancarse con `python run.py`, que abre Swagger automáticamente.
 
-## Ejecución y Verificación
+### Visual Studio 2022 (opcional)
 
-1. Verificación de Carga de Datos (Comprueba la correcta lectura e instanciación de los 16 pedidos base):
-python cargar_csv.py
+Requiere la carga de trabajo "Desarrollo de Python". Ejecuta `instalar.bat` una vez, abre `TechStoreU4.sln` y presiona la flecha verde: arranca `run.py` y abre `http://127.0.0.1:8000/docs`.
 
-2. Ejecución de la Suite de Escenarios de Negocio (Ejecuta los escenarios E01 a E15 y actualiza el archivo bitacora_escenarios.csv):
-python ejecutar_escenarios.py
+### Publicación en IIS (opcional)
 
-3. Ejecución de Pruebas Unitarias y de Integración:
-pytest
+Ejecuta `publicar.bat` para generar la carpeta `publish`, cópiala al servidor, crea ahí el `.venv` e instala `requirements.txt`. El sitio usa `web.config` con el módulo HttpPlatformHandler; ajusta `processPath` a la ruta de tu `python.exe`.
 
-4. Inicialización del Servidor API:
-uvicorn app.api:app --reload
+## Reglas de negocio
 
-La interfaz interactiva Swagger UI se encuentra disponible en http://127.0.0.1:8000/docs.
+| Regla | Dónde se protege |
+|---|---|
+| `Money` usa `Decimal`, no admite negativos, valores no finitos ni moneda distinta de MXN | `Money.__post_init__` |
+| Un artículo exige un SKU no vacío y una cantidad mayor a 0; el subtotal se calcula | `OrderItem` |
+| Máximo **20 unidades** por pedido (suma de cantidades, no de renglones) | `Order.add_item` |
+| Solo un pedido DRAFT admite artículos | `Order.add_item` |
+| **10 %:** VIP AND total **> 500** AND **≥ 4** unidades AND NOT promoción | `TEN_PERCENT` |
+| **5 %:** total **> 5000** AND NOT promoción | `FIVE_PERCENT` |
+| Si se cumplen ambas reglas, se aplica el 10 % | `discount_rate()` |
+| `confirm()`: solo desde DRAFT, con artículos y con cliente activo | `Order.confirm` |
+| `ship(guía)`: solo desde CONFIRMED y con guía no vacía | `Order.ship` |
+| `cancel(motivo)`: solo desde CONFIRMED y con motivo no vacío | `Order.cancel` |
+| `deliver()` y `return_order()`: solo desde SHIPPED | `Order.deliver`, `Order.return_order` |
+| Una operación inválida no cambia el estado ni agrega eventos | Cada método valida antes de modificar |
 
----
+## Endpoints
 
-## Especificación de la API REST
+| Método | Ruta | Descripción | Errores |
+|---|---|---|---|
+| GET | `/orders` | Lista los pedidos con su descuento | — |
+| GET | `/orders/{id}` | Detalle, descuento y eventos | 404 |
+| POST | `/orders` | Crea un pedido DRAFT (ampliación) | 404 si el cliente no existe, 409 si el pedido ya existe |
+| POST | `/orders/{id}/items` | Agrega un artículo (ampliación) | 404, 409, 422 |
+| POST | `/orders/{id}/confirm` | Confirma | 404, 409 (no está en DRAFT), 422 (vacío o cliente inactivo) |
+| POST | `/orders/{id}/ship` | Envía, con `{"tracking_number": "..."}` | 404, 409, 422 (sin guía) |
+| POST | `/orders/{id}/cancel` | Cancela, con `{"reason": "..."}` | 404, 409, 422 (sin motivo) |
+| POST | `/orders/{id}/deliver` | Entrega | 404, 409 |
+| POST | `/orders/{id}/return` | Devuelve | 404, 409 |
+| POST | `/reset` | Recarga los 16 pedidos desde los CSV | — |
 
-* GET /orders : Lista la totalidad de los pedidos y el cálculo de sus descuentos (200).
-* GET /orders/{id} : Retorna el detalle del pedido, eventos emitidos y tasa de descuento aplicada (200, 404).
-* POST /orders : Registra un nuevo pedido en estado DRAFT (201, 404, 409).
-* POST /orders/{id}/items : Incorpora un nuevo artículo a un pedido en borrador (200, 404, 409, 422).
-* POST /orders/{id}/confirm : Realiza la confirmación de la orden de compra (200, 404, 409, 422).
-* POST /orders/{id}/ship : Asigna la guía de rastreo y cambia el estado a enviado. Payload: {"tracking_number": "..."} (200, 404, 409, 422).
-* POST /orders/{id}/cancel : Registra la cancelación del pedido. Payload: {"reason": "..."} (200, 404, 409, 422).
-* POST /orders/{id}/deliver : Registra la entrega formal del pedido al cliente (200, 404, 409).
-* POST /orders/{id}/return : Procesa la devolución del producto previamente despachado (200, 404, 409).
-* POST /reset : Restablece los pedidos en memoria al estado inicial de los archivos CSV (200).
+Errores: **404** el pedido no existe; **409** `InvalidOrderTransition`; **422** `InvalidOrderData` u `OrderItemLimitExceeded`. Como los cambios se acumulan en memoria, usa `POST /reset` (o reinicia el servidor) entre pruebas.
 
-Códigos de Respuesta y Manejo de Errores:
-* 404 Not Found: El identificador de pedido o cliente solicitado no existe en memoria.
-* 409 Conflict (InvalidOrderTransition): Transición de estado incompatible con el estado actual del pedido.
-* 422 Unprocessable Entity (InvalidOrderData, OrderItemLimitExceeded): Carga útil inválida, campos requeridos vacíos o exceso del límite de 20 unidades permitidas.
+### Pruebas sugeridas en Swagger (`/docs`)
+
+1. `POST /orders/O999/confirm` → **404**
+2. `POST /orders/O013/confirm` dos veces → **200** y luego **409**
+3. `POST /orders/O007/confirm` → **422** (pedido sin artículos)
+
+## Evidencias
+
+En `docs/capturas/`: carga de los 16 pedidos (`python cargar_csv.py`), resultado de `python -m pytest -q` y capturas de Swagger con una operación exitosa (200) y una rechazada (404, 409 o 422). La bitácora de E01–E15 está en `bitacora_escenarios.csv`, y el diagrama, los eventos y la reflexión en `docs/REPORTE.md`.
